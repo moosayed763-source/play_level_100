@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>مغامرة الفضاء - 100 مرحلة متوازنة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Tajawal', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            background-color: #05070f;
+            color: #ffffff;
+            overflow: hidden;
+        }
+        .glow-box {
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.25);
+        }
+        .glow-btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glow-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+        }
+        .glow-btn:active {
+            transform: translateY(1px);
+        }
+        .modal-backdrop {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0d1222;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #00f0ff;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-2 md:p-4 bg-slate-950 text-white">
+
+<div class="relative w-full max-w-5xl h-[94vh] md:h-[88vh] bg-slate-900/90 border-2 border-cyan-500/40 rounded-3xl shadow-2xl overflow-hidden flex flex-col glow-box">
+    
+    <!-- Top HUD Header -->
+    <div class="flex items-center justify-between px-4 py-2.5 bg-slate-950/90 border-b border-cyan-900/60 text-xs md:text-sm font-bold z-10 shrink-0 select-none">
+        <div class="flex items-center gap-2">
+            <span class="text-slate-400">المرحلة:</span>
+            <span id="hud-level" class="text-cyan-400 text-lg md:text-xl font-black">1</span>
+            <span id="hud-tier-badge" class="px-2 py-0.5 text-xs rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">مبتدئ</span>
+        </div>
+
+        <div class="flex items-center gap-3 md:gap-6">
+            <div class="flex items-center gap-1.5">
+                <span class="text-slate-400 hidden sm:inline">البلورات:</span>
+                <span class="text-emerald-400">💎</span>
+                <span id="hud-target" class="text-emerald-300 font-bold">0 / 3</span>
+            </div>
+            
+            <div class="flex items-center gap-1">
+                <span class="text-slate-400 hidden sm:inline">الصحة:</span>
+                <div id="hud-health" class="flex gap-1 text-rose-500 text-sm md:text-base">❤️❤️❤️</div>
+            </div>
+
+            <div class="hidden lg:flex items-center gap-1">
+                <span class="text-slate-400">النقاط:</span>
+                <span id="hud-score" class="text-amber-400 font-extrabold">0</span>
+            </div>
+        </div>
+
+        <div class="flex gap-2">
+            <button id="pause-btn" onclick="togglePause()" class="bg-amber-500/20 hover:bg-amber-500/40 border border-amber-500/50 text-amber-300 px-3 py-1 rounded-xl text-xs font-bold transition-all">
+                ⏸️ إيقاف
+            </button>
+            <button onclick="openLevelSelector()" class="bg-cyan-600/30 hover:bg-cyan-600/60 border border-cyan-400/50 text-cyan-200 px-3 py-1 rounded-xl text-xs font-bold transition-all">
+                🎮 المراحل
+            </button>
+        </div>
+    </div>
+
+    <!-- Active Power-up Indicator Banner -->
+    <div id="powerup-banner" class="hidden absolute top-12 left-1/2 -translate-x-1/2 z-10 bg-slate-900/90 border border-amber-400 text-amber-300 px-4 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-2">
+        <span id="powerup-icon">🛡️</span>
+        <span id="powerup-text">درع حماية متنشط!</span>
+        <div class="w-16 bg-slate-800 rounded-full h-1.5 overflow-hidden border border-amber-500/30">
+            <div id="powerup-timer-bar" class="bg-amber-400 h-full w-full transition-all"></div>
+        </div>
+    </div>
+
+    <div class="relative flex-1 w-full h-full bg-slate-950 overflow-hidden flex items-center justify-center">
+        <canvas id="gameCanvas" class="block w-full h-full cursor-crosshair"></canvas>
+
+        <!-- On-Screen Mobile Touch Joystick / D-Pad Overlay -->
+        <div class="absolute bottom-4 left-4 right-4 flex justify-between items-end opacity-60 hover:opacity-100 transition-opacity md:hidden pointer-events-none select-none z-10">
+            <div class="grid grid-cols-3 gap-1.5 w-36 h-36 pointer-events-auto">
+                <div></div>
+                <button ontouchstart="handleTouchStart('ArrowUp')" ontouchend="handleTouchEnd('ArrowUp')" class="bg-slate-800/80 border border-cyan-500/60 text-cyan-300 p-2 rounded-2xl flex items-center justify-center text-xl active:bg-cyan-500 active:text-black">▲</button>
+                <div></div>
+                <button ontouchstart="handleTouchStart('ArrowLeft')" ontouchend="handleTouchEnd('ArrowLeft')" class="bg-slate-800/80 border border-cyan-500/60 text-cyan-300 p-2 rounded-2xl flex items-center justify-center text-xl active:bg-cyan-500 active:text-black">◄</button>
+                <button ontouchstart="handleTouchStart('ArrowDown')" ontouchend="handleTouchEnd('ArrowDown')" class="bg-slate-800/80 border border-cyan-500/60 text-cyan-300 p-2 rounded-2xl flex items-center justify-center text-xl active:bg-cyan-500 active:text-black">▼</button>
+                <button ontouchstart="handleTouchStart('ArrowRight')" ontouchend="handleTouchEnd('ArrowRight')" class="bg-slate-800/80 border border-cyan-500/60 text-cyan-300 p-2 rounded-2xl flex items-center justify-center text-xl active:bg-cyan-500 active:text-black">►</button>
+            </div>
+            
+            <div class="text-2xs text-slate-400 bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-700 pointer-events-auto">
+                استخدم الأسهم أو WASD
+            </div>
+        </div>
+    </div>
+
+    <!-- Start & Pause Overlay Modal -->
+    <div id="modal-overlay" class="absolute inset-0 bg-slate-950/90 modal-backdrop flex flex-col items-center justify-center p-6 text-center z-20">
+        <div class="text-5xl mb-3 animate-bounce">🚀</div>
+        <h1 id="modal-title" class="text-3xl md:text-5xl font-black text-cyan-400 drop-shadow-[0_0_20px_rgba(0,240,255,0.6)] mb-2">
+            مغامرة الفضاء - 100 مرحلة
+        </h1>
+        <p id="modal-sub" class="text-slate-300 max-w-md mb-6 text-xs md:text-sm leading-relaxed">
+            استكشف الفضاء واجمع البلورات الخضراء المتوهجة! تم ضبط صعوبة المراحل لتكون تدريجية وممتعة.
+        </p>
+
+        <div id="modal-star-rating" class="hidden text-3xl mb-4 gap-1">
+            <span class="star-1 text-slate-600">★</span>
+            <span class="star-2 text-slate-600">★</span>
+            <span class="star-3 text-slate-600">★</span>
+        </div>
+
+        <div class="flex flex-wrap gap-3 justify-center">
+            <button id="modal-primary-btn" onclick="startCurrentLevel()" class="glow-btn bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-black px-8 py-3 rounded-full text-base md:text-lg shadow-lg">
+                ابدأ اللعب الآن
+            </button>
+            <button onclick="openLevelSelector()" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 px-6 py-3 rounded-full font-bold text-sm transition-all">
+                🎯 اختيار مرحلة
+            </button>
+        </div>
+    </div>
+
+    <!-- Level Selector Modal -->
+    <div id="selector-modal" class="hidden absolute inset-0 bg-slate-950/95 modal-backdrop flex flex-col p-4 md:p-6 z-30">
+        <div class="flex justify-between items-center mb-3">
+            <div class="flex items-center gap-2">
+                <h2 class="text-xl md:text-2xl font-black text-cyan-400">خريطة المراحل (100)</h2>
+                <span id="unlocked-count" class="text-xs bg-cyan-950 border border-cyan-800 text-cyan-300 px-2 py-0.5 rounded-full">مفتوح: 1/100</span>
+            </div>
+            <button onclick="closeLevelSelector()" class="text-slate-400 hover:text-white text-2xl font-bold p-1">✕</button>
+        </div>
+
+        <!-- Tiers Legend -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-xs">
+            <div class="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex justify-between items-center">
+                <span>1-25: مبتدئ</span>
+                <span class="text-2xs opacity-80">سهل وسلس</span>
+            </div>
+            <div class="px-2.5 py-1.5 rounded-xl bg-amber-500/10 text-amber-300 border border-amber-500/30 flex justify-between items-center">
+                <span>26-50: متوسط</span>
+                <span class="text-2xs opacity-80">عقبات متحركة</span>
+            </div>
+            <div class="px-2.5 py-1.5 rounded-xl bg-rose-500/10 text-rose-300 border border-rose-500/30 flex justify-between items-center">
+                <span>51-75: متقدم</span>
+                <span class="text-2xs opacity-80">حواجز طاقة</span>
+            </div>
+            <div class="px-2.5 py-1.5 rounded-xl bg-purple-500/10 text-purple-300 border border-purple-500/30 flex justify-between items-center">
+                <span>76-100: خبير</span>
+                <span class="text-2xs opacity-80">تحدي احترافي</span>
+            </div>
+        </div>
+
+        <!-- Grid of 100 Levels -->
+        <div id="level-grid" class="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 overflow-y-auto pr-1 flex-1 py-1">
+            <!-- Populated dynamically via JavaScript -->
+        </div>
+    </div>
+</div>
+
+<script>
+// Web Audio Synthesizer (No external audio assets)
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new AudioContext();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+function playSound(type) {
+    if (!audioCtx) return;
+    try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        const now = audioCtx.currentTime;
+
+        if (type === 'crystal') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, now); // C5
+            osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.12); // C6
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+            osc.start(now);
+            osc.stop(now + 0.12);
+        } else if (type === 'powerup') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.linearRampToValueAtTime(800, now + 0.25);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+            osc.start(now);
+            osc.stop(now + 0.25);
+        } else if (type === 'hit') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(140, now);
+            osc.frequency.exponentialRampToValueAtTime(30, now + 0.2);
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+            osc.start(now);
+            osc.stop(now + 0.2);
+        } else if (type === 'win') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, now);
+            osc.frequency.setValueAtTime(554.37, now + 0.08);
+            osc.frequency.setValueAtTime(659.25, now + 0.16);
+            osc.frequency.setValueAtTime(880, now + 0.24);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+            osc.start(now);
+            osc.stop(now + 0.45);
+        } else if (type === 'click') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400, now);
+            gain.gain.setValueAtTime(0.05, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+            osc.start(now);
+            osc.stop(now + 0.04);
+        }
+    } catch(e) { console.error(e); }
+}
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let currentLevel = 1;
+let maxUnlockedLevel = parseInt(localStorage.getItem('space_game_max_level') || '1');
+let levelStars = JSON.parse(localStorage.getItem('space_game_stars') || '{}');
+
+let isPlaying = false;
+let isPaused = false;
+let animationFrameId = null;
+
+let score = 0;
+let levelScore = 0;
+let collectedInLevel = 0;
+let health = 3;
+let levelStartTime = 0;
+
+// Active Power-up State
+let activePowerUp = null; // 'shield', 'speed', 'slow'
+let powerUpTimer = 0;
+
+// Keys State
+const keys = {};
+
+function resizeCanvas() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+const player = {
+    x: 80,
+    y: 200,
+    radius: 13, // Visual size
+    hitRadius: 9, // Slightly smaller hitbox for fair gameplay
+    baseSpeed: 5.5,
+    speed: 5.5,
+    color: '#00f0ff',
+    angle: 0
+};
+
+let collectibles = [];
+let hazards = [];
+let lasers = [];
+let powerUps = [];
+let particles = [];
+let starsBg = [];
+
+// Create Cosmic Starfield Background
+function initStarfield() {
+    starsBg = [];
+    for (let i = 0; i < 80; i++) {
+        starsBg.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: Math.random() * 2 + 0.5,
+            alpha: Math.random() * 0.8 + 0.2,
+            speed: Math.random() * 0.5 + 0.1
+        });
+    }
+}
+
+function getLevelConfig(levelNum) {
+    let category = 'beginner';
+    let badgeText = 'مبتدئ';
+    let badgeClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
+
+    if (levelNum > 75) {
+        category = 'expert';
+        badgeText = 'خبير';
+        badgeClass = 'bg-purple-500/20 text-purple-400 border-purple-500/40';
+    } else if (levelNum > 50) {
+        category = 'advanced';
+        badgeText = 'متقدم';
+        badgeClass = 'bg-rose-500/20 text-rose-400 border-rose-500/40';
+    } else if (levelNum > 25) {
+        category = 'intermediate';
+        badgeText = 'متوسط';
+        badgeClass = 'bg-amber-500/20 text-amber-400 border-amber-500/40';
+    }
+
+    // Fair, gradual scaling formula
+    // Target crystals: starts at 3, smoothly scales to 10 max
+    const targetCount = Math.min(10, 3 + Math.floor((levelNum - 1) * 0.08));
+
+    // Asteroids / Hazards: starts at 2, scales smoothly up to 10
+    const hazardCount = Math.min(10, 2 + Math.floor((levelNum - 1) * 0.09));
+
+    // Speed multiplier: starts at 1.0, reaches 2.2 max at level 100
+    const speedMultiplier = 1.0 + ((levelNum - 1) * 0.012);
+
+    // Lasers toggle (introduced gently at level 50+)
+    const hasLasers = levelNum >= 50;
+    const laserCount = hasLasers ? Math.min(3, 1 + Math.floor((levelNum - 50) * 0.06)) : 0;
+
+    return {
+        category,
+        badgeText,
+        badgeClass,
+        targetCount,
+        hazardCount,
+        speedMultiplier,
+        hasLasers,
+        laserCount
+    };
+}
+
+window.addEventListener('keydown', (e) => {
+    initAudio();
+    keys[e.key] = true;
+});
+window.addEventListener('keyup', (e) => {
+    keys[e.key] = false;
+});
+
+function handleTouchStart(key) {
+    initAudio();
+    keys[key] = true;
+}
+function handleTouchEnd(key) {
+    keys[key] = false;
+}
+
+function renderLevelSelector() {
+    const grid = document.getElementById('level-grid');
+    grid.innerHTML = '';
+    
+    document.getElementById('unlocked-count').textContent = `مفتوح: ${maxUnlockedLevel}/100`;
+
+    for (let i = 1; i <= 100; i++) {
+        const config = getLevelConfig(i);
+        const isUnlocked = i <= maxUnlockedLevel;
+        const stars = levelStars[i] || 0;
+
+        const btn = document.createElement('button');
+        
+        let colorClasses = 'border-slate-800 bg-slate-950/40 text-slate-600 opacity-60 cursor-not-allowed';
+        if (isUnlocked) {
+            colorClasses = 'border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20';
+            if (config.category === 'intermediate') colorClasses = 'border-amber-500/40 text-amber-300 hover:bg-amber-500/20';
+            if (config.category === 'advanced') colorClasses = 'border-rose-500/40 text-rose-300 hover:bg-rose-500/20';
+            if (config.category === 'expert') colorClasses = 'border-purple-500/40 text-purple-300 hover:bg-purple-500/20';
+        }
+
+        btn.className = `p-2 rounded-xl text-center font-bold text-xs border transition-all flex flex-col items-center justify-between h-14 ${colorClasses} ${i === currentLevel ? 'ring-2 ring-cyan-400 scale-105' : ''}`;
+        
+        let starsHTML = '<span class="text-2xs text-slate-600">🔒</span>';
+        if (isUnlocked) {
+            starsHTML = `<span class="text-2xs text-amber-400">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</span>`;
+        }
+
+        btn.innerHTML = `
+            <span>${i}</span>
+            ${starsHTML}
+        `;
+
+        if (isUnlocked) {
+            btn.onclick = () => {
+                playSound('click');
+                currentLevel = i;
+                closeLevelSelector();
+                startCurrentLevel();
+            };
+        }
+        grid.appendChild(btn);
+    }
+}
+
+function openLevelSelector() {
+    renderLevelSelector();
+    document.getElementById('selector-modal').classList.remove('hidden');
+}
+
+function closeLevelSelector() {
+    document.getElementById('selector-modal').classList.add('hidden');
+}
+
+function togglePause() {
+    if (!isPlaying) return;
+    playSound('click');
+    isPaused = !isPaused;
+    const pauseBtn = document.getElementById('pause-btn');
+    if (isPaused) {
+        pauseBtn.textContent = '▶️ استئناف';
+        showModal('اللعبة متوقفة مؤقتاً', 'اضغط استئناف لمتابعة اللعب', 'استئناف اللعب');
+    } else {
+        pauseBtn.textContent = '⏸️ إيقاف';
+        document.getElementById('modal-overlay').classList.add('hidden');
+        gameLoop();
+    }
+}
+
+function spawnLevelEntities() {
+    const config = getLevelConfig(currentLevel);
+    collectibles = [];
+    hazards = [];
+    lasers = [];
+    powerUps = [];
+    particles = [];
+    collectedInLevel = 0;
+    activePowerUp = null;
+    powerUpTimer = 0;
+    updatePowerUpBanner();
+
+    // Reset player position safely
+    player.x = 60;
+    player.y = canvas.height / 2;
+    player.speed = player.baseSpeed;
+
+    // Spawn Crystals evenly spaced
+    for (let i = 0; i < config.targetCount; i++) {
+        collectibles.push({
+            x: 120 + (i * ((canvas.width - 200) / Math.max(1, config.targetCount - 1))),
+            y: 60 + Math.random() * (canvas.height - 120),
+            radius: 9,
+            pulse: Math.random() * Math.PI * 2
+        });
+    }
+
+    // Spawn Hazards (Meteors)
+    for (let i = 0; i < config.hazardCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = (1.2 + Math.random() * 1.5) * config.speedMultiplier;
+        hazards.push({
+            x: 180 + Math.random() * (canvas.width - 240),
+            y: 60 + Math.random() * (canvas.height - 120),
+            radius: 11 + Math.random() * 5,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            color: config.category === 'expert' ? '#c084fc' : (config.category === 'advanced' ? '#f43f5e' : '#f59e0b')
+        });
+    }
+
+    // Spawn Lasers if advanced level
+    if (config.hasLasers) {
+        for (let i = 0; i < config.laserCount; i++) {
+            lasers.push({
+                y: 80 + (i + 1) * (canvas.height / (config.laserCount + 1)),
+                active: false,
+                timer: Math.random() * 120,
+                cycle: 180 // frames per cycle
+            });
+        }
+    }
+
+    // Chance to spawn a power-up item
+    if (Math.random() < 0.6) {
+        const types = ['shield', 'speed', 'slow'];
+        const type = types[Math.floor(Math.random() * types.length)];
+        powerUps.push({
+            x: 150 + Math.random() * (canvas.width - 300),
+            y: 60 + Math.random() * (canvas.height - 120),
+            radius: 12,
+            type: type
+        });
+    }
+
+    levelStartTime = Date.now();
+    updateHUD();
+}
+
+function updateHUD() {
+    const config = getLevelConfig(currentLevel);
+    document.getElementById('hud-level').textContent = currentLevel;
+    
+    const badge = document.getElementById('hud-tier-badge');
+    badge.textContent = config.badgeText;
+    badge.className = `px-2 py-0.5 text-xs rounded-full border ${config.badgeClass}`;
+
+    document.getElementById('hud-target').textContent = `${collectedInLevel} / ${config.targetCount}`;
+    document.getElementById('hud-health').textContent = '❤️'.repeat(Math.max(0, health));
+    document.getElementById('hud-score').textContent = score;
+}
+
+function updatePowerUpBanner() {
+    const banner = document.getElementById('powerup-banner');
+    if (!activePowerUp || powerUpTimer <= 0) {
+        banner.classList.add('hidden');
+        return;
+    }
+
+    banner.classList.remove('hidden');
+    const icon = document.getElementById('powerup-icon');
+    const text = document.getElementById('powerup-text');
+    const bar = document.getElementById('powerup-timer-bar');
+
+    if (activePowerUp === 'shield') {
+        icon.textContent = '🛡️';
+        text.textContent = 'درع الحماية متنشط!';
+    } else if (activePowerUp === 'speed') {
+        icon.textContent = '⚡';
+        text.textContent = 'سرعة فائقة!';
+    } else if (activePowerUp === 'slow') {
+        icon.textContent = '⏱️';
+        text.textContent = 'إبطاء حركة العقبات!';
+    }
+
+    bar.style.width = `${(powerUpTimer / 300) * 100}%`;
+}
+
+function createParticles(x, y, color, count = 12) {
+    for (let i = 0; i < count; i++) {
+        particles.push({
+            x, y,
+            radius: Math.random() * 3 + 1,
+            vx: (Math.random() - 0.5) * 5,
+            vy: (Math.random() - 0.5) * 5,
+            alpha: 1,
+            color
+        });
+    }
+}
+
+function update() {
+    if (!isPlaying || isPaused) return;
+
+    // Handle Active Powerup Timer
+    if (activePowerUp) {
+        powerUpTimer--;
+        updatePowerUpBanner();
+        if (powerUpTimer <= 0) {
+            activePowerUp = null;
+            player.speed = player.baseSpeed;
+            updatePowerUpBanner();
+        }
+    }
+
+    // Player Movement Speed logic
+    let currentSpeed = player.speed;
+    if (activePowerUp === 'speed') currentSpeed = player.baseSpeed * 1.6;
+
+    let dx = 0;
+    let dy = 0;
+
+    if (keys['ArrowUp'] || keys['w'] || keys['W']) dy -= 1;
+    if (keys['ArrowDown'] || keys['s'] || keys['S']) dy += 1;
+    if (keys['ArrowLeft'] || keys['a'] || keys['A']) dx -= 1;
+    if (keys['ArrowRight'] || keys['d'] || keys['D']) dx += 1;
+
+    // Normalize diagonal movement
+    if (dx !== 0 && dy !== 0) {
+        dx *= 0.7071;
+        dy *= 0.7071;
+    }
+
+    player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x + dx * currentSpeed));
+    player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y + dy * currentSpeed));
+
+    if (dx !== 0 || dy !== 0) {
+        player.angle = Math.atan2(dy, dx);
+    }
+
+    // Update Cosmic Stars Background
+    starsBg.forEach(star => {
+        star.x -= star.speed;
+        if (star.x < 0) star.x = canvas.width;
+    });
+
+    // Speed multiplier for slow motion powerup
+    const slowFactor = activePowerUp === 'slow' ? 0.4 : 1.0;
+
+    // Update Hazards
+    hazards.forEach(h => {
+        h.x += h.vx * slowFactor;
+        h.y += h.vy * slowFactor;
+
+        // Wall bouncing
+        if (h.x - h.radius <= 0 || h.x + h.radius >= canvas.width) h.vx *= -1;
+        if (h.y - h.radius <= 0 || h.y + h.radius >= canvas.height) h.vy *= -1;
+
+        // Collision check with player
+        const dist = Math.hypot(player.x - h.x, player.y - h.y);
+        if (dist < player.hitRadius + h.radius) {
+            if (activePowerUp === 'shield') {
+                // Destroy hazard when shielded
+                playSound('hit');
+                createParticles(h.x, h.y, '#38bdf8', 15);
+                h.x = -999; // Move offscreen
+            } else {
+                playSound('hit');
+                createParticles(player.x, player.y, '#f43f5e', 18);
+                health--;
+                updateHUD();
+
+                // Safe repositioning
+                player.x = 60;
+                player.y = canvas.height / 2;
+
+                if (health <= 0) {
+                    gameOver(false);
+                }
+            }
+        }
+    });
+
+    // Update Lasers
+    lasers.forEach(l => {
+        l.timer++;
+        const cycleFrame = l.timer % l.cycle;
+        l.active = cycleFrame > 100 && cycleFrame < 160;
+
+        if (l.active) {
+            if (Math.abs(player.y - l.y) < player.hitRadius + 3) {
+                if (activePowerUp !== 'shield') {
+                    playSound('hit');
+                    createParticles(player.x, player.y, '#f43f5e', 18);
+                    health--;
+                    updateHUD();
+                    player.x = 60;
+                    player.y = canvas.height / 2;
+                    if (health <= 0) gameOver(false);
+                }
+            }
+        }
+    });
+
+    // Update Power-ups Collection
+    powerUps.forEach((p, idx) => {
+        const dist = Math.hypot(player.x - p.x, player.y - p.y);
+        if (dist < player.hitRadius + p.radius) {
+            playSound('powerup');
+            createParticles(p.x, p.y, '#fbbf24', 15);
+            activePowerUp = p.type;
+            powerUpTimer = 300; // 5 seconds
+            updatePowerUpBanner();
+            powerUps.splice(idx, 1);
+        }
+    });
+
+    // Update Collectibles Collection
+    const config = getLevelConfig(currentLevel);
+    collectibles.forEach((c, index) => {
+        c.pulse += 0.05;
+        const dist = Math.hypot(player.x - c.x, player.y - c.y);
+        if (dist < player.hitRadius + c.radius + 2) {
+            playSound('crystal');
+            createParticles(c.x, c.y, '#10b981', 12);
+            collectibles.splice(index, 1);
+            collectedInLevel++;
+            score += 100;
+            updateHUD();
+
+            // Win condition reached
+            if (collectedInLevel >= config.targetCount) {
+                handleLevelWin();
+            }
+        }
+    });
+
+    // Update Particles
+    particles.forEach((p, index) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= 0.03;
+        if (p.alpha <= 0) particles.splice(index, 1);
+    });
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Background Grid & Stars
+    starsBg.forEach(star => {
+        ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // Draw Lasers
+    lasers.forEach(l => {
+        ctx.save();
+        if (l.active) {
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#f43f5e';
+            ctx.strokeStyle = '#f43f5e';
+            ctx.lineWidth = 6;
+        } else {
+            ctx.strokeStyle = 'rgba(244, 63, 94, 0.15)';
+            ctx.lineWidth = 2;
+        }
+        ctx.beginPath();
+        ctx.moveTo(0, l.y);
+        ctx.lineTo(canvas.width, l.y);
+        ctx.stroke();
+        ctx.restore();
+    });
+
+    // Draw Collectibles (Glowing Crystals)
+    collectibles.forEach(c => {
+        ctx.save();
+        const pulseRadius = c.radius + Math.sin(c.pulse) * 2;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = '#10b981';
+        ctx.fillStyle = '#10b981';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, pulseRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
+
+    // Draw Power-ups
+    powerUps.forEach(p => {
+        ctx.save();
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = '#fbbf24';
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#000';
+        ctx.font = '10px Tajawal';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let symbol = '🛡️';
+        if (p.type === 'speed') symbol = '⚡';
+        if (p.type === 'slow') symbol = '⏱️';
+        ctx.fillText(symbol, p.x, p.y);
+        ctx.restore();
+    });
+
+    // Draw Hazards (Meteors)
+    hazards.forEach(h => {
+        if (h.x < 0) return;
+        ctx.save();
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = h.color;
+        ctx.fillStyle = h.color;
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
+
+    // Draw Player Spaceship
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.rotate(player.angle);
+
+    if (activePowerUp === 'shield') {
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, player.radius + 6, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = player.color;
+    ctx.fillStyle = player.color;
+    
+    // Sleek triangular spaceship polygon
+    ctx.beginPath();
+    ctx.moveTo(player.radius + 4, 0);
+    ctx.lineTo(-player.radius, -player.radius + 3);
+    ctx.lineTo(-player.radius + 4, 0);
+    ctx.lineTo(-player.radius, player.radius - 3);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+
+    // Draw Particles
+    particles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
+}
+
+function gameLoop() {
+    update();
+    draw();
+    if (isPlaying && !isPaused) {
+        animationFrameId = requestAnimationFrame(gameLoop);
+    }
+}
+
+function handleLevelWin() {
+    playSound('win');
+    isPlaying = false;
+    cancelAnimationFrame(animationFrameId);
+
+    // Calculate Stars based on health remaining
+    let stars = 1;
+    if (health === 3) stars = 3;
+    else if (health === 2) stars = 2;
+
+    levelStars[currentLevel] = Math.max(levelStars[currentLevel] || 0, stars);
+
+    if (currentLevel >= maxUnlockedLevel && maxUnlockedLevel < 100) {
+        maxUnlockedLevel = currentLevel + 1;
+        localStorage.setItem('space_game_max_level', maxUnlockedLevel.toString());
+    }
+    localStorage.setItem('space_game_stars', JSON.stringify(levelStars));
+
+    if (currentLevel >= 100) {
+        showModal('🏆 أسطورة الفضاء!', 'تهانينا! لقد أنهيت جميع الـ 100 مرحلة بنجاح باهر!', 'إعادة اللعب من جديد', stars);
+    } else {
+        showModal(`أحسنت! أتممت المرحلة ${currentLevel}`, 'تم فتح المرحلة التالية بنجاح.', 'المرحلة التالية ➔', stars);
+        currentLevel++;
+    }
+}
+
+function gameOver(isWin = false) {
+    isPlaying = false;
+    cancelAnimationFrame(animationFrameId);
+    showModal('انتهت المحاولة!', `توقفت عند المرحلة رقم ${currentLevel}. حاول مرة أخرى بترقّب وسرعة!`, 'إعادة المحاولة 🔄');
+}
+
+function showModal(titleText, subText, btnText, stars = 0) {
+    const overlay = document.getElementById('modal-overlay');
+    document.getElementById('modal-title').textContent = titleText;
+    document.getElementById('modal-sub').textContent = subText;
+    document.getElementById('modal-primary-btn').textContent = btnText;
+
+    const starContainer = document.getElementById('modal-star-rating');
+    if (stars > 0) {
+        starContainer.classList.remove('hidden');
+        starContainer.classList.add('flex');
+        const starElems = starContainer.children;
+        for (let i = 0; i < 3; i++) {
+            starElems[i].className = i < stars ? 'text-amber-400' : 'text-slate-700';
+        }
+    } else {
+        starContainer.classList.add('hidden');
+        starContainer.classList.remove('flex');
+    }
+
+    overlay.classList.remove('hidden');
+}
+
+function startCurrentLevel() {
+    initAudio();
+    health = 3;
+    isPlaying = true;
+    isPaused = false;
+    document.getElementById('pause-btn').textContent = '⏸️ إيقاف';
+    document.getElementById('modal-overlay').classList.add('hidden');
+    spawnLevelEntities();
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    gameLoop();
+}
+
+// Initial initialization
+initStarfield();
+resizeCanvas();
+</script>
+</body>
+</html>
